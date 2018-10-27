@@ -266,7 +266,7 @@ plot(fcast)
 
 hold <- window(ts(deseasonal_cnt), start=330)
 
-fit_no_holdout = arima(ts(deseasonal_cnt[-c(330:359)]), order=c(1,1,7))
+fit_no_holdout = arima(ts(deseasonal_cnt[-c(330:359)]), order=c(6,1,7))
 
 fcast_no_holdout <- forecast(fit_no_holdout,h=29)
 plot(fcast_no_holdout, main=" ")
@@ -297,3 +297,73 @@ lines(ts(deseasonal_cnt))
 
 
 plot(seas_fcast)
+
+
+##Monthly Non-seasonal data
+count_ma30 = ts(na.omit(daily_data$cnt_ma30), frequency=12)
+decomp = stl(count_ma30, s.window="periodic")
+deseasonal_cnt <- seasadj(decomp)
+plot(decomp)
+
+#Test if series is stationary
+#Null Hypothesis - series is not stationary
+adf.test(count_ma30, alternative = "stationary")
+
+# Augmented Dickey-Fuller Test
+# 
+# data:  count_ma
+# Dickey-Fuller = 0.047295, Lag order = 7, p-value = 0.99
+# alternative hypothesis: stationary
+#p-value is 0.99 we do not reject the null hypothesis, confirming our visual inspection
+
+Acf(count_ma30, main='')
+Pacf(count_ma30, main='')
+
+#Start with d=1 and re-evaluate whether further differencing is needed
+count_d1 = diff(deseasonal_cnt, differences = 1)
+plot(count_d1)
+adf.test(count_d1, alternative = "stationary")
+
+# Augmented Dickey-Fuller Test
+# 
+# data:  count_d1
+# Dickey-Fuller = -6.8256, Lag order = 7, p-value = 0.01
+# alternative hypothesis: stationary
+
+#Rejects the null hypothesis of non-stationary
+
+Acf(count_d1, main='ACF for Differenced Series')
+Pacf(count_d1, main='PACF for Differenced Series')
+
+#Fit ARIMA Model
+fit1 <- auto.arima(deseasonal_cnt, seasonal=FALSE)
+fit1
+# ARIMA(4,2,3) 
+# 
+# Coefficients:
+#   ar1     ar2      ar3      ar4     ma1      ma2      ma3
+# -0.0505  0.3334  -0.0520  -0.0110  0.7874  -0.8723  -0.7364
+# s.e.   0.1532  0.1336   0.0815   0.0758  0.1424   0.0678   0.1251
+# 
+# sigma^2 estimated as 48483:  log likelihood=-2266.83
+# AIC=4549.67   AICc=4550.11   BIC=4580.13
+tsdisplay(residuals(fit1), lag.max=30, main='(4,2,3) Model Residuals')
+# There is a clear pattern present in ACF/PACF and model residuals plots repeating at lag 7. 
+# This suggests that our model may be better off with a different specification, 
+# such as p = 7 or q = 7. 
+
+coeftest(fit1)
+#Forecast
+fcast <- forecast(fit1, h=9)
+plot(fcast)
+
+hold <- window(ts(deseasonal_cnt), start=300)
+
+fit_no_holdout = arima(ts(deseasonal_cnt[-c(300:359)]), order=c(4,2,3))
+
+fcast_no_holdout <- forecast(fit_no_holdout,h=59)
+plot(fcast_no_holdout, main=" ")
+lines(ts(deseasonal_cnt))
+
+f_values <- forecast(fit1, h=9)
+plot(f_values)
